@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HermesGPT</title>
+<link rel="icon" type="image/x-icon" href="IndexIcon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: rgb(48, 48, 48);
+    --text: rgb(72, 175, 252);
+    --dim: rgb(40, 100, 160);
+    --bright: rgb(140, 210, 255);
+    --red: rgb(255, 80, 80);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,0,0,0.08) 3px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: min(600px, 90vw);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .header {
+    text-align: center;
+  }
+
+  .header h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(18px, 4vw, 28px);
+    letter-spacing: 0.25em;
+    color: var(--bright);
+    text-shadow: 0 0 20px rgba(72,175,252,0.6), 0 0 40px rgba(72,175,252,0.2);
+  }
+
+  .header .subtitle {
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--dim);
+    margin-top: 6px;
+  }
+
+  .card {
+    width: 100%;
+    border: 1px solid var(--dim);
+    border-radius: 4px;
+    padding: 32px 28px;
+    position: relative;
+    background: rgba(0,0,0,0.3);
+    box-shadow:
+      0 0 0 1px rgba(72,175,252,0.05),
+      inset 0 0 40px rgba(0,0,0,0.4),
+      0 0 60px rgba(72,175,252,0.05);
+  }
+  .card::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .card::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .card-label {
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    background: var(--bg);
+    padding: 0 8px;
+  }
+
+  #prescript-lines {
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .prescript-line {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(16px, 3vw, 20px);
+    color: var(--text);
+    text-shadow: 0 0 8px rgba(72,175,252,0.4);
+    line-height: 1.4;
+    min-height: 1.4em;
+  }
+
+  .controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  button {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    padding: 12px 28px;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--text);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--text);
+    transform: translateX(-101%);
+    z-index: -1;
+  }
+
+  button:hover {
+    color: var(--bg);
+    text-shadow: none;
+    box-shadow: 0 0 20px rgba(72,175,252,0.3);
+  }
+  button:hover::before { transform: translateX(0); }
+
+  button:active { transform: scale(0.97); }
+
+  button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  button:disabled:hover { color: var(--text); }
+  button:disabled:hover::before { transform: translateX(-101%); }
+
+  .status {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--dim);
+    text-align: center;
+  }
+
+  .status.generating { color: var(--text); animation: blink 0.8s step-end infinite; }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .counter {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--dim);
+  }
+
+  @keyframes glitch {
+    0%   { filter: brightness(1); }
+    20%  { filter: brightness(2) hue-rotate(30deg); }
+    40%  { filter: brightness(0.5); }
+    60%  { filter: brightness(1.5); }
+    100% { filter: brightness(1); }
+  }
+  .glitch { animation: glitch 0.2s steps(3) forwards; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <span class="card-label">PRESCRIPT</span>
+    <div id="prescript-lines"></div>
+  </div>
+
+  <div class="controls">
+    <button id="generate-btn" onclick="newPrescript()">[ GENERATE ]</button>
+  </div>
+
+  <div class="status" id="status">READY</div>
+  <div class="counter" id="counter">PRESCRIPTS GENERATED: 0</div>
+</div>
+
+<script>
+  const decodeSound = new Audio("decode.mp3");
+  const doneSound = new Audio("done.mp3");
+  decodeSound.loop = true;
+
+  const ACTIONS    = ["kill","eat","hug","pat","feed","take care of","watch","drink","shit on","break","greet","give a gift to","pull","push","help","smile at","wet"];
+  const TIME       = ["ten hours","five minutes","eight hundred hours","five seconds","eight minutes"];
+  const TIME_BIG   = ["day","week","month","decade"];
+  const BODY_PARTS = ["right hand","teeth","toes","eyelid","tongue","lips","fingers","nails"];
+  const WEAPONS    = ["sword","axe","fpoon","spear","rifle","bomb","scythe","fist","whip","lance","sabre","gun","pistol","minigun","nuke","bonesaw","crossbow","shield","wrench","jarate"];
+  const NUMBERS    = ["first","second","third","fourth","fifth","sixth","seventh","eighth","ninth","tenth","twenty secondth","eight hundredth"];
+  const OBJECTS    = ["milk","cinderblock","cardboard box","painting","picture","printer","outlet","wire","jar","phone"];
+  const AMOUNTS    = ["liter","gram","ounce","pound","a foot"];
+  const TIME_ROMANTIC = ["the next time it rains","the sunrise","the death of someone close to you","the sunset","the next birth","your happiest moment","you go to work","your next prescript"]
+  const DIRECTION = ["north","south","east","west"]
+  const TYPE_CHARS = ["!","@","#","$","%","*","&","=","+","a","A","b","B","c","C","d","D","e","E","f","F","g","G","h","H","i","I","j","J","k","K","l","L","m","M","n","N","o","O","p","P","q","Q","r","R","s","S","t","T","u","U","v","V","w","W","x","X","y","Y","z","Z"];
+  const COLORS = ["red","blue","green","yellow","purple","black","white","peach","brown","grey","pink","cyan","orange","lavender","maroon","burgundy","chartruse","baby barf green","baby poop brown","spoiled milk yellow","gold","with puke","dead salmon","Gamboge","tyrian purple","YlnMn"]
+  //Helper functions
+  function choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function makeFake(len) {
+    let s = "";
+    for (let i = 0; i < len; i++) s += choice(TYPE_CHARS);
+    return s;
+  }
+
+  function wrapText(str, width) {
+    const words = str.split(" ");
+    const lines = [];
+    let current = "";
+    for (const word of words) {
+      if ((current + (current ? " " : "") + word).length <= width) {
+        current += (current ? " " : "") + word;
+      } else {
+        if (current) lines.push(current);
+        current = word;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+
+  function generatePrescript() {
+    const time      = choice(TIME);
+    const timeBig   = choice(TIME_BIG);
+    const action    = choice(ACTIONS);
+    const number    = choice(NUMBERS);
+    const weapon    = choice(WEAPONS);
+    const bodyPart  = choice(BODY_PARTS);
+    const object    = choice(OBJECTS);
+    const timeromantic = choice(TIME_ROMANTIC);
+    const direction = choice(DIRECTION);
+    const color = choice(COLORS);
+
+    const people_pool = ["friend","partner","lover","father","stranger","billionaire",`${number} person you see`];
+    const people = choice(people_pool);
+    const athe = (people.slice(-2) === "ee") ? "the" : "a";
+    const templates1 = [
+      `pick up a ${choice(OBJECTS)} with your ${choice(BODY_PARTS)}`,
+      `act like a certain librarian`,
+      `pull the trigger with your ${choice(BODY_PARTS)}`,
+    ];
+    const templates = [
+      `Before ${timeromantic}, ${action} ${athe} ${people}`,
+      `attack ${athe} ${people} with a ${weapon} within a ${timeBig} and ${time}`,
+      `remove ${athe} ${people}'s ${bodyPart} with a ${weapon} after ${timeromantic}`,
+      `pick up a ${object} with your ${bodyPart}`,
+      `Walk for ${time} facing ${direction}, then ${choice(templates1)}`,
+      `Find ${athe} ${people} and ${action} them, then ${choice(templates1)}`,
+      `Paint your room ${color}`,
+      `Set ${athe} ${people} free`,
+      `${getRandomInt(1000,9999)} ${getRandomInt(1000,9999)}`,
+      `Only ${action}, or ${choice(ACTIONS)}`,
+      `Dye your hair ${color}, then ${choice(templates1)}`,
+      `Locate ${Math.random()*100} ${object}s, then use them to ${action} ${athe} ${people}`
+      
+    ];
+
+    return "_" + capitalize(choice(templates)) + "_";
+  }
+
+  let lines       = []; 
+  let labels      = [];
+  let fakeVals    = [];
+  let ticks       = [];
+  let lineIndex   = 0;
+  let intervalId  = null;
+  let isAnimating = false;
+  let count       = 0;
+
+  const STEPS_PER_SECOND = 15;
+  const WRAP_WIDTH = 30;
+
+  const linesEl  = document.getElementById("prescript-lines");
+  const statusEl = document.getElementById("status");
+  const countEl  = document.getElementById("counter");
+  const btn      = document.getElementById("generate-btn");
+
+  function makeLabels(wrappedLines) {
+    linesEl.innerHTML = "";
+    labels = [];
+    fakeVals = [];
+    ticks = [];
+    for (const line of wrappedLines) {
+      const span = document.createElement("div");
+      span.className = "prescript-line";
+      const fake = makeFake(line.length);
+      span.textContent = fake;
+      linesEl.appendChild(span);
+      labels.push(span);
+      fakeVals.push(fake);
+      ticks.push(0);
+    }
+  }
+
+
+  function onStep() {
+    if (lineIndex >= lines.length) {
+      finishAnimation();
+      return;
+    }
+
+    const target  = lines[lineIndex];
+    const current = labels[lineIndex].textContent;
+
+    if (current !== target) {
+      const revealed  = target.slice(0, ticks[lineIndex]);
+      const remaining = makeFake(target.length - ticks[lineIndex]);
+      labels[lineIndex].textContent = revealed + remaining;
+      ticks[lineIndex]++;
+    } else {
+      lineIndex++;
+    }
+  }
+
+  function finishAnimation() {
+    clearInterval(intervalId);
+    intervalId = null;
+    isAnimating = false;
+    btn.disabled = false;
+    statusEl.textContent = "PRESCRIPT READY";
+    statusEl.classList.remove("generating");
+    decodeSound.pause();
+    doneSound.play();
+  }
+
+
+  function newPrescript() {
+    if (isAnimating) return;
+
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+
+    linesEl.classList.remove("glitch");
+    void linesEl.offsetWidth;
+    linesEl.classList.add("glitch");
+
+    // Generate
+    const prescript = generatePrescript();
+    lines = wrapText(prescript, WRAP_WIDTH);
+    lineIndex = 0;
+
+    makeLabels(lines);
+
+    count++;
+    countEl.textContent = `PRESCRIPTS GENERATED: ${count}`;
+    statusEl.textContent = "DECODING HERMES MESSAGE...";
+    statusEl.classList.add("generating");
+    btn.disabled = true;
+    isAnimating = true;
+
+    intervalId = setInterval(onStep, 900 / STEPS_PER_SECOND);
+
+    decodeSound.currentTime = 0;
+    decodeSound.play();
+  }
+
+  newPrescript();
+</script>
+</body>
+</html>
